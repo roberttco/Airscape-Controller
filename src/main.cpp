@@ -24,7 +24,7 @@ void setup()
 
     digitalWrite(LED_BUILTIN, LOW); // Turn off the LED
 
-    fan = new Fan(FAN_PIN,DAMPER_PIN,FU_PIN,FD_PIN, TU_PIN, TD_PIN);
+    fan = new Fan(FAN_PIN,DAMPER_PIN,FU_PIN,FD_PIN,TU_PIN,TD_PIN);
 }
 
 void loop()

@@ -3,16 +3,21 @@
 #include <OneButton.h>
 
 #include "Damper.h"
+#include "Timer.h"
 
+// configure the SoftPWM output
 SOFTPWM_DEFINE_CHANNEL(0, DDRB, PORTB, PORTB2); // Arduino pin 10
 SOFTPWM_DEFINE_OBJECT_WITH_PWM_LEVELS(1, 100);
 
 class Fan
 {
 private:
-    OneButton fu_button, fd_button, tu_button, td_button;
+    OneButton fu_button, fd_button;
+    OneButton tu_button, td_button;
     int speed;
     Damper *damper;
+    Timer *timer;
+    unsigned long lasttimer = 0;
 
     void printSpeed()
     {
@@ -57,32 +62,54 @@ private:
         printSpeed();
     }
 
-    void timerUpClicked()
+    //void damperOpenCallback(void *scope)
+    void damperOpenCallback()
     {
-    }
-
-    void timerDownClicked()
-    {
-    }
-
-    static void damperOpenCallback(void *scope)
-    {
-        Serial.println("damperOpen callback called");
-
-        Fan *a = (Fan *)scope;
-
-        Serial.println(a->speed);
-
-        Palatis::SoftPWM.set(0, a->speed);
+        Serial.print("damperOpen callback called. Speed set to ");
+        Serial.println(speed);
+        Palatis::SoftPWM.set(0, speed);
 
         digitalWrite(LED_BUILTIN,HIGH);
     }
 
-    static void damperClosedCallback(void *arg)
+    //void damperClosedCallback(void *arg)
+    void damperClosedCallback()
     {
         Serial.println("damperClosed callback called");
 
         digitalWrite(LED_BUILTIN,LOW);
+    }
+
+
+    void timerUpClicked()
+    {
+        Serial.print ("Time now set to ");
+        timer->increment(10000);
+        Serial.println(timer->get());
+
+        if (speed == 0)
+        {
+            // this will open/reopen the damper and set the speed to 10%
+            fanUpClicked();
+        }
+
+        timer->start();
+    }
+
+    void timerDownClicked()
+    {
+        Serial.print ("Time now set to ");
+        timer->decrement(10000);
+        Serial.println(timer->get());
+    }
+
+    void timerExpiredCallback()
+    {
+        Serial.println("Timer expired. Stopping and closing damper.");
+
+        speed = 0;
+        Palatis::SoftPWM.set(0, speed);
+        damper->close();
     }
 
 public:
@@ -101,21 +128,29 @@ public:
         speed = 0;
 
         pinMode(fan_pin, OUTPUT);
-        damper = new Damper(damper_pin,damperOpenCallback,damperClosedCallback,this);
+        damper = new Damper(damper_pin,
+            [](void *scope) { ((Fan *)scope)->damperOpenCallback(); },
+            [](void *scope) { ((Fan *)scope)->damperClosedCallback(); },
+            this);
+
+        timer = new Timer(
+            [](void *scope) { ((Fan *)scope)->timerExpiredCallback(); },
+            this);
 
         fu_button.attachClick([](void *scope)           { ((Fan *)scope)->fanUpClicked(); }, this);
         fu_button.attachDuringLongPress([](void *scope) { ((Fan *)scope)->fanUpClicked(); }, this);
+        fu_button.setLongPressIntervalMs(250);
+
         fd_button.attachClick([](void *scope)           { ((Fan *)scope)->fanDownClicked(); }, this);
         fd_button.attachDuringLongPress([](void *scope) { ((Fan *)scope)->fanDownClicked(); }, this);
+        fd_button.setLongPressIntervalMs(250);
 
         tu_button.attachClick([](void *scope)           { ((Fan *)scope)->timerUpClicked(); }, this);
         tu_button.attachDuringLongPress([](void *scope) { ((Fan *)scope)->timerUpClicked(); }, this);
+        tu_button.setLongPressIntervalMs(250);
+
         td_button.attachClick([](void *scope)           { ((Fan *)scope)->timerDownClicked(); }, this);
         td_button.attachDuringLongPress([](void *scope) { ((Fan *)scope)->timerDownClicked(); }, this);
-
-        fu_button.setLongPressIntervalMs(250);
-        fd_button.setLongPressIntervalMs(250);
-        tu_button.setLongPressIntervalMs(250);
         td_button.setLongPressIntervalMs(250);
     }
 
@@ -129,25 +164,19 @@ public:
         if (damper)
             damper->loop();
 
+        if (timer && timer->isRunning())
+        {
+            timer->loop();
+            if ((millis() - lasttimer) > 1000)
+            {
+                lasttimer = millis();
+                Serial.println(timer->get_remaining());
+            }
+        }
+
         fu_button.tick();
         fd_button.tick();
-    }
-
-    void faster()
-    {
-        if (damper->isClosed())
-        {
-            damper->open();
-        }
-        fanUpClicked();
-    }
-
-    void slower()
-    {
-        fanDownClicked();
-        if (damper->isOpen())
-        {
-            damper->close();
-        }
+        tu_button.tick();
+        td_button.tick();
     }
 };
