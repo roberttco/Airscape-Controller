@@ -4,9 +4,9 @@
 #include "Fan.h"
 
 #define FU_PIN 3
-#define FD_PIN 4
-#define TU_PIN 5
-#define TD_PIN 6
+#define FD_PIN 6
+#define TU_PIN 4
+#define TD_PIN 5
 #define DAMPER_PIN 7
 #define FAN_PIN 10
 
@@ -20,9 +20,11 @@ void setup()
 
     pinMode(DAMPER_PIN, OUTPUT);
     pinMode(LED_BUILTIN, OUTPUT);   // Initialize the built-in LED pin as an output
+
+
     digitalWrite(LED_BUILTIN, LOW); // Turn off the LED
 
-    fan = new Fan(FAN_PIN,DAMPER_PIN,FU_PIN,FD_PIN);
+    fan = new Fan(FAN_PIN,DAMPER_PIN,FU_PIN,FD_PIN, TU_PIN, TD_PIN);
 }
 
 void loop()

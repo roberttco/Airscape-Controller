@@ -22,6 +22,10 @@ private:
     bool openCallbackCalled = false;
     bool closedCallbackCalled = false;
 
+    void (*openCallback)(void *);
+    void (*closedCallback)(void *);
+    void *cbscope;
+
     void open_damper()
     {
         Serial.println("damper.open_damper");
@@ -35,7 +39,10 @@ private:
     }
 
 public:
-    Damper(uint8_t damper_pin)
+    Damper(uint8_t damper_pin,
+        void (*damperOpenCallback)(void *) = nullptr,
+        void (*damperClosedCallback)(void *) = nullptr,
+        void *scope = nullptr)
     {
         Serial.println("damper.damp er called");
         timeToOpen = 10000; // 10 seconds
@@ -49,6 +56,10 @@ public:
         state = CLOSED;
         next_state = CLOSED;
         desired_state = CLOSED;
+
+        openCallback = damperOpenCallback;
+        closedCallback = damperClosedCallback;
+        cbscope = scope;
     }
 
     void loop()
@@ -60,6 +71,7 @@ public:
             {
                 closedCallbackCalled = true;
                 Serial.println("Damper closed");
+                if (closedCallback != nullptr) closedCallback(cbscope);
                 // TODO: call closed callback
             }
             switch (desired_state)
@@ -100,6 +112,7 @@ public:
             {
                 openCallbackCalled = true;
                 Serial.println("Damper open");
+                if (openCallback != nullptr) openCallback(cbscope);
                 // TODO: call open callback
             }
 
