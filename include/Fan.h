@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <SoftPWM.h>
 #include <OneButton.h>
+#include <SoftwareSerial.h>
 
 #include "Damper.h"
 #include "Timer.h"
@@ -9,12 +10,14 @@
 SOFTPWM_DEFINE_CHANNEL(0, DDRB, PORTB, PORTB2); // Arduino pin 10
 SOFTPWM_DEFINE_OBJECT_WITH_PWM_LEVELS(1, 100);
 
+
+
 class Fan
 {
 private:
     OneButton fu_button, fd_button;
     OneButton tu_button, td_button;
-    int speed;
+    int _speed;
     Damper *damper;
     Timer *timer;
     unsigned long lasttimer = 0;
@@ -22,15 +25,15 @@ private:
     void printSpeed()
     {
         Serial.print("Fan speed: ");
-        Serial.print(speed);
+        Serial.print(_speed);
         Serial.println("%");
     }
 
     void fanUpClicked()
     {
-        speed += 10;
-        if (speed > 100)
-            speed = 100;
+        _speed += 10;
+        if (_speed > 100)
+            _speed = 100;
 
         if (damper->isClosed())
         {
@@ -39,24 +42,24 @@ private:
         }
         else if (damper->isOpen())
         {
-            Palatis::SoftPWM.set(0, speed);
+            Palatis::SoftPWM.set(0, _speed);
         }
         printSpeed();
     }
 
     void fanDownClicked()
     {
-        speed -= 10;
-        if (speed <= 0)
+        _speed -= 10;
+        if (_speed <= 0)
         {
-            speed = 0;
-            Palatis::SoftPWM.set(0, speed);
+            _speed = 0;
+            Palatis::SoftPWM.set(0, _speed);
             Serial.println("Damper is open.  Speed is 0.  Closing damper");
             damper->close();
         }
         else if (damper->isOpen())
         {
-            Palatis::SoftPWM.set(0, speed);
+            Palatis::SoftPWM.set(0, _speed);
         }
 
         printSpeed();
@@ -65,9 +68,9 @@ private:
     //void damperOpenCallback(void *scope)
     void damperOpenCallback()
     {
-        Serial.print("damperOpen callback called. Speed set to ");
-        Serial.println(speed);
-        Palatis::SoftPWM.set(0, speed);
+        Serial.print("Fan::damperOpen callback called. Speed set to ");
+        Serial.println(_speed);
+        Palatis::SoftPWM.set(0, _speed);
 
         digitalWrite(LED_BUILTIN,HIGH);
     }
@@ -75,7 +78,7 @@ private:
     //void damperClosedCallback(void *arg)
     void damperClosedCallback()
     {
-        Serial.println("damperClosed callback called");
+        Serial.println("Fan::damperClosed callback called");
 
         digitalWrite(LED_BUILTIN,LOW);
     }
@@ -83,11 +86,11 @@ private:
 
     void timerUpClicked()
     {
-        Serial.print ("Time now set to ");
+        Serial.print ("Fan::timerUpClicked called. Time now set to ");
         timer->increment(10000);
         Serial.println(timer->get());
 
-        if (speed == 0)
+        if (_speed == 0)
         {
             // this will open/reopen the damper and set the speed to 10%
             fanUpClicked();
@@ -98,17 +101,17 @@ private:
 
     void timerDownClicked()
     {
-        Serial.print ("Time now set to ");
+        Serial.print ("Fan::timerDownClicked called. Time now set to ");
         timer->decrement(10000);
         Serial.println(timer->get());
     }
 
     void timerExpiredCallback()
     {
-        Serial.println("Timer expired. Stopping and closing damper.");
+        Serial.println("Fan::timerExpiredCallback called");
 
-        speed = 0;
-        Palatis::SoftPWM.set(0, speed);
+        _speed = 0;
+        Palatis::SoftPWM.set(0, _speed);
         damper->close();
     }
 
@@ -125,7 +128,7 @@ public:
         // print interrupt load for diagnostic purposes
         Palatis::SoftPWM.printInterruptLoad();
 
-        speed = 0;
+        _speed = 0;
 
         pinMode(fan_pin, OUTPUT);
         damper = new Damper(damper_pin,
@@ -157,6 +160,47 @@ public:
     // probably dont really need this since the fan is never out of scope
     ~Fan()
     {
+    }
+
+    void faster()
+    {
+        this->fanUpClicked();
+    }
+
+    void slower()
+    {
+        this->fanDownClicked();
+    }
+
+    void setSpeed(int percent)
+    {
+        _speed = max(0, std::min(percent, 100));
+        Palatis::SoftPWM.set(0, _speed);
+    }
+
+    void longer()
+    {
+        this->timerUpClicked();
+    }
+
+    void shorter()
+    {
+        this->timerDownClicked();
+    }
+
+    int speed()
+    {
+        return this->_speed;
+    }
+
+    bool damperState()
+    {
+        return this->damper->isOpen();
+    }
+
+    unsigned long timeRemaining()
+    {
+        return this->timer->get_remaining();
     }
 
     void loop()

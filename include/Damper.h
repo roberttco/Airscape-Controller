@@ -158,25 +158,25 @@ public:
 
     void open()
     {
-        Serial.println("damper.open called");
+        //Serial.println("damper.open called");
         desired_state = OPEN;
     }
 
     void close()
     {
-        Serial.println("damper.close called");
+        //Serial.println("damper.close called");
         desired_state = CLOSED;
     }
 
     bool isClosed()
     {
-        Serial.println("damper.is_closed called");
+        //Serial.println("damper.is_closed called");
         return (state == CLOSED);
     }
 
     bool isOpen()
     {
-        Serial.println("damper.is_open called");
+        //Serial.println("damper.is_open called");
         return (state == OPEN);
     }
 };

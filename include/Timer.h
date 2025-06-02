@@ -55,7 +55,7 @@ public:
         }
         else
         {
-            return _time;
+            return 0;
         }
     }
 
